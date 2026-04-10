@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Antwerpaurant</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --amber:#F5A623;--red:#E8443A;--green:#2ECC71;--blue:#3498DB;
+  --bg:#FAFAF7;--bg2:#F0EDE6;--card:#FFFFFF;
+  --txt:#1A1714;--txt2:#6B6560;--muted:#9E9892;--border:#E8E4DC;
+  --shadow:0 4px 20px rgba(0,0,0,.09);--r:13px;
+}
+[data-theme="dark"]{
+  --bg:#0F0E0C;--bg2:#1A1916;--card:#232018;
+  --txt:#F2EFE8;--txt2:#A09A92;--muted:#6B6560;--border:#2E2B26;
+  --shadow:0 4px 20px rgba(0,0,0,.4);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt)}
+
+/* SPLASH */
+#splash{position:fixed;inset:0;z-index:9999;background:#1A1714;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;transition:opacity .5s ease}
+#splash.out{opacity:0;pointer-events:none}
+.sp-icon{font-size:54px;animation:bob 1.5s ease-in-out infinite}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+.sp-title{font-family:'Syne',sans-serif;font-size:26px;font-weight:800;color:#fff;text-align:center}
+.sp-title span{color:#F5A623}
+.sp-bar{width:200px;height:3px;background:rgba(255,255,255,.12);border-radius:99px;overflow:hidden}
+.sp-fill{height:100%;background:#F5A623;border-radius:99px;animation:fill 2.4s ease forwards}
+@keyframes fill{from{width:0}to{width:100%}}
+.sp-msg{font-size:12px;color:rgba(255,255,255,.4);text-align:center;max-width:220px;line-height:1.6}
+
+/* LAYOUT */
+#app{display:flex;flex-direction:column;height:100vh}
+#hdr{height:62px;background:var(--card);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;padding:0 16px;flex-shrink:0;z-index:100}
+.logo{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.logo-ic{width:36px;height:36px;background:#F5A623;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px}
+.logo-txt{font-family:'Syne',sans-serif;font-weight:800;font-size:16px}
+.logo-txt span{color:#F5A623}
+.srch-wrap{flex:1;max-width:420px;position:relative}
+.srch-wrap input{width:100%;height:38px;padding:0 36px 0 14px;background:var(--bg2);border:1.5px solid transparent;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--txt);outline:none;transition:border-color .2s}
+.srch-wrap input:focus{border-color:#F5A623;background:var(--card)}
+.srch-wrap input::placeholder{color:var(--muted)}
+.srch-ico{position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--muted);pointer-events:none}
+.hbtns{display:flex;gap:6px;margin-left:auto;flex-shrink:0;align-items:center}
+.ibtn{width:36px;height:36px;border-radius:9px;border:1.5px solid var(--border);background:var(--card);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:all .2s;color:var(--txt2)}
+.ibtn:hover{border-color:#F5A623;color:#F5A623}
+.cpill{background:#F5A623;color:#fff;font-size:11px;font-weight:700;padding:3px 9px;border-radius:99px}
+#body{display:flex;flex:1;overflow:hidden}
+
+/* SIDEBAR */
+#sidebar{width:355px;flex-shrink:0;background:var(--bg);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.sb-sec{padding:11px 13px;border-bottom:1px solid var(--border);flex-shrink:0}
+.sb-lbl{font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:6px;display:block}
+.pills{display:flex;gap:5px;flex-wrap:wrap}
+.pill{padding:5px 11px;border-radius:99px;border:1.5px solid var(--border);font-size:12px;font-weight:500;cursor:pointer;background:var(--card);color:var(--txt2);transition:all .18s;white-space:nowrap;font-family:'DM Sans',sans-serif}
+.pill:hover{border-color:#F5A623;color:#F5A623}
+.pill.on{background:#F5A623;border-color:#F5A623;color:#fff}
+.surprise{width:100%;padding:11px;background:linear-gradient(135deg,#FF6B35,#E8443A);border:none;border-radius:11px;color:#fff;font-family:'Syne',sans-serif;font-weight:700;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:transform .15s,box-shadow .15s;margin-top:5px}
+.surprise:hover{transform:translateY(-1px);box-shadow:0 8px 20px rgba(232,68,58,.3)}
+.pdot{width:8px;height:8px;background:rgba(255,255,255,.8);border-radius:50%;animation:pd 1.4s ease-in-out infinite}
+@keyframes pd{0%,100%{transform:scale(1)}50%{transform:scale(1.7);opacity:.4}}
+.nb-sel{width:100%;padding:7px 9px;border:1.5px solid var(--border);border-radius:8px;background:var(--card);color:var(--txt);font-family:'DM Sans',sans-serif;font-size:12px;outline:none;margin-bottom:7px;cursor:pointer}
+.rh{display:flex;justify-content:space-between;align-items:center;padding:9px 13px 5px;flex-shrink:0}
+.rh-t{font-family:'Syne',sans-serif;font-weight:700;font-size:13px}
+.rh-c{font-size:11px;color:var(--muted)}
+#list-wrap{flex:1;overflow-y:auto;padding:6px 10px 60px}
+#list-wrap::-webkit-scrollbar{width:3px}
+#list-wrap::-webkit-scrollbar-thumb{background:var(--border);border-radius:99px}
+
+/* CARD */
+.card{background:var(--card);border:1.5px solid var(--border);border-radius:13px;padding:12px;margin-bottom:7px;cursor:pointer;transition:all .18s;position:relative;overflow:hidden}
+.card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:transparent;transition:background .18s}
+.card:hover{border-color:#F5A623;transform:translateY(-1px);box-shadow:var(--shadow)}
+.card:hover::before,.card.hl::before{background:#F5A623}
+.card.hl{border-color:#F5A623;box-shadow:0 0 0 3px rgba(245,166,35,.15)}
+.ct{display:flex;align-items:flex-start;gap:9px;margin-bottom:7px}
+.ci{width:40px;height:40px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.cn{font-family:'Syne',sans-serif;font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cc{font-size:11px;color:var(--muted);margin-top:1px}
+.badge{font-size:9px;font-weight:700;padding:2px 6px;border-radius:99px;flex-shrink:0;margin-top:2px}
+.bo{background:rgba(46,204,113,.15);color:#2ECC71}
+.bc{background:rgba(232,68,58,.12);color:#E8443A}
+.bu{background:var(--bg2);color:var(--muted)}
+.cb{display:flex;gap:10px;font-size:11px;color:var(--txt2);align-items:center}
+.pt{font-weight:700;color:#F5A623}
+
+/* LOADING STATE */
+.loading-state{display:flex;flex-direction:column;align-items:center;gap:12px;padding:50px 20px;text-align:center}
+.loading-state .ls-icon{font-size:32px;animation:bob 1.5s ease-in-out infinite}
+.loading-state .ls-t{font-family:'Syne',sans-serif;font-weight:700;font-size:14px}
+.loading-state .ls-s{font-size:12px;color:var(--muted);line-height:1.6}
+.loading-dots{display:flex;gap:5px;justify-content:center;margin-top:4px}
+.loading-dots span{width:6px;height:6px;border-radius:50%;background:#F5A623;animation:ldot 1.2s ease-in-out infinite}
+.loading-dots span:nth-child(2){animation-delay:.2s}
+.loading-dots span:nth-child(3){animation-delay:.4s}
+@keyframes ldot{0%,80%,100%{transform:scale(0);opacity:.3}40%{transform:scale(1);opacity:1}}
+
+/* MAP */
+#map-wrap{flex:1;position:relative}
+#map{width:100%;height:100%}
+.mabtn{position:absolute;z-index:400;background:var(--card);border:1.5px solid var(--border);border-radius:9px;box-shadow:var(--shadow);padding:7px 12px;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;color:var(--txt);cursor:pointer;display:flex;align-items:center;gap:6px;transition:all .2s}
+.mabtn:hover{background:#F5A623;color:#fff;border-color:#F5A623}
+#loc-btn{bottom:90px;right:12px}
+
+/* MODAL */
+#moverlay{position:fixed;inset:0;background:rgba(0,0,0,.5);backdrop-filter:blur(6px);z-index:500;display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;pointer-events:none;transition:opacity .22s}
+#moverlay.on{opacity:1;pointer-events:all}
+#modal{background:var(--card);border-radius:22px;width:100%;max-width:500px;max-height:88vh;overflow-y:auto;box-shadow:0 24px 60px rgba(0,0,0,.18);transform:scale(.94) translateY(14px);transition:transform .28s cubic-bezier(.34,1.56,.64,1)}
+#moverlay.on #modal{transform:scale(1) translateY(0)}
+.mhdr{padding:22px 22px 0;display:flex;gap:12px;align-items:flex-start}
+.mi{width:52px;height:52px;border-radius:12px;background:var(--bg2);display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0}
+.mn{font-family:'Syne',sans-serif;font-size:20px;font-weight:800;line-height:1.2}
+.mc{font-size:12px;color:var(--muted);margin-top:3px}
+.mclose{margin-left:auto;width:30px;height:30px;border-radius:99px;border:1.5px solid var(--border);background:none;cursor:pointer;font-size:14px;color:var(--muted);flex-shrink:0;transition:all .2s}
+.mclose:hover{background:var(--bg2);color:var(--txt)}
+.mbody{padding:18px 22px 22px}
+.igrid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:14px}
+.ibox{background:var(--bg2);border-radius:11px;padding:11px 13px}
+.ilbl{font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:3px}
+.ival{font-size:13px;font-weight:600}
+.ival.a{color:#F5A623}.ival.g{color:#2ECC71}.ival.r{color:#E8443A}
+.abox{background:var(--bg2);border-radius:11px;padding:12px;margin-bottom:8px;display:flex;gap:9px}
+.atxt{font-size:12px;color:var(--txt2);line-height:1.5}
+.pbox{background:var(--bg2);border-radius:11px;padding:12px;margin-bottom:14px;display:flex;gap:9px;align-items:center}
+.ptxt{font-size:12px;color:var(--txt2)}
+.mtags{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:16px}
+.tag{padding:3px 9px;background:var(--bg2);border-radius:99px;font-size:11px;color:var(--txt2)}
+.tag.a{background:rgba(245,166,35,.15);color:#F5A623}
+.tag.g{background:rgba(46,204,113,.12);color:#2ECC71}
+.mbtns{display:flex;gap:8px}
+.mbtn{flex:1;padding:12px;border-radius:11px;border:none;font-family:'DM Sans',sans-serif;font-weight:600;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:all .18s}
+.mbtn.p{background:linear-gradient(135deg,#F5A623,#E8920A);color:#fff}
+.mbtn.p:hover{box-shadow:0 8px 20px rgba(245,166,35,.35);transform:translateY(-1px)}
+.mbtn.s{background:var(--bg2);color:var(--txt);border:1.5px solid var(--border)}
+.mbtn.s:hover{border-color:#F5A623;color:#F5A623}
+#rbox{background:var(--bg2);border-radius:11px;padding:11px 13px;margin-top:11px;display:none;font-size:13px;color:var(--txt2)}
+
+/* TOAST */
+#toasts{position:fixed;bottom:20px;right:20px;z-index:600;display:flex;flex-direction:column;gap:7px;pointer-events:none}
+.toast{background:var(--txt);color:var(--bg);padding:11px 15px;border-radius:11px;font-size:13px;font-weight:500;box-shadow:var(--shadow);animation:tin .3s cubic-bezier(.34,1.56,.64,1) forwards,tout .3s ease 3s forwards;pointer-events:all}
+@keyframes tin{from{opacity:0;transform:translateX(80px)}to{opacity:1;transform:translateX(0)}}
+@keyframes tout{from{opacity:1}to{opacity:0}}
+
+/* EMPTY */
+.empty{display:flex;flex-direction:column;align-items:center;gap:8px;padding:40px 20px;text-align:center}
+.empty .ei{font-size:36px}
+.empty .et{font-family:'Syne',sans-serif;font-weight:700;font-size:15px}
+.empty .es{font-size:12px;color:var(--muted);line-height:1.5}
+
+/* MOBILE */
+@media(max-width:700px){
+  #sidebar{display:none}
+  #bs{display:flex !important}
+  .logo-txt{display:none}
+}
+#bs{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--card);border-radius:20px 20px 0 0;z-index:200;flex-direction:column;max-height:72vh;overflow:hidden;box-shadow:0 -6px 30px rgba(0,0,0,.15);transform:translateY(calc(100% - 65px));transition:transform .35s cubic-bezier(.4,0,.2,1)}
+#bs.up{transform:translateY(0)}
+.bsh{width:36px;height:4px;background:var(--border);border-radius:99px;margin:10px auto 0;flex-shrink:0;cursor:pointer}
+.bshd{padding:10px 16px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;flex-shrink:0}
+.bsht{font-family:'Syne',sans-serif;font-weight:700;font-size:15px}
+#bsl{flex:1;overflow-y:auto;padding:0 10px 20px}
+</style>
+</head>
+<body>
+
+<div id="splash">
+  <div class="sp-icon">🍟</div>
+  <div class="sp-title">Antwerp<span>aurant</span></div>
+  <div class="sp-bar"><div class="sp-fill"></div></div>
+  <div class="sp-msg">Fetching live spots from OpenStreetMap…</div>
+</div>
+
+<div id="toasts"></div>
+
+<div id="moverlay">
+  <div id="modal">
+    <div class="mhdr">
+      <div class="mi" id="mi">🍽️</div>
+      <div style="flex:1;min-width:0">
+        <div class="mn" id="mn">Name</div>
+        <div class="mc" id="mc">Category</div>
+      </div>
+      <button class="mclose" onclick="closeModal()">✕</button>
+    </div>
+    <div class="mbody">
+      <div class="igrid">
+        <div class="ibox"><div class="ilbl">💰 Price</div><div class="ival a" id="mp">€€</div></div>
+        <div class="ibox"><div class="ilbl">📂 Type</div><div class="ival" id="mtype">—</div></div>
+        <div class="ibox"><div class="ilbl">🕐 Hours</div><div class="ival" id="mhours">—</div></div>
+        <div class="ibox"><div class="ilbl">📞 Phone</div><div class="ival" id="mphone">—</div></div>
+      </div>
+      <div class="abox"><span style="font-size:18px;flex-shrink:0">📍</span><div class="atxt" id="maddr">Antwerp, Belgium</div></div>
+      <div class="mtags" id="mtags"></div>
+      <div class="mbtns">
+        <button class="mbtn p" onclick="doRoute()">🚶 Route Me</button>
+        <button class="mbtn s" onclick="openMaps()">🗺️ Open Maps</button>
+      </div>
+      <div id="rbox"></div>
+    </div>
+  </div>
+</div>
+
+<div id="app">
+  <header id="hdr">
+    <div class="logo">
+      <div class="logo-ic">🍟</div>
+      <div class="logo-txt">Antwerp<span>aurant</span></div>
+    </div>
+    <div class="srch-wrap">
+      <input type="text" id="srch" placeholder="Search spots, cuisine..." autocomplete="off" oninput="onSearch(this.value)">
+      <span class="srch-ico">🔍</span>
+    </div>
+    <div class="hbtns">
+      <div class="cpill" id="cnt">0</div>
+      <button class="ibtn" id="thmbtn" onclick="toggleTheme()" title="Dark/Light">🌙</button>
+      <button class="ibtn" onclick="toggleSidebar()" title="Sidebar">☰</button>
+    </div>
+  </header>
+
+  <div id="body">
+    <div id="sidebar">
+      <div class="sb-sec">
+        <select class="nb-sel" id="nbsel" onchange="applyFilters()">
+          <option value="">All Antwerp (15 km)</option>
+          <option value="Borgerhout">Borgerhout</option>
+          <option value="Zuid">Zuid</option>
+          <option value="Deurne">Deurne</option>
+          <option value="Berchem">Berchem</option>
+          <option value="Merksem">Merksem</option>
+          <option value="Hoboken">Hoboken</option>
+          <option value="Wilrijk">Wilrijk</option>
+          <option value="Ekeren">Ekeren</option>
+          <option value="Zwijndrecht">Zwijndrecht</option>
+          <option value="Kiel">Kiel</option>
+          <option value="Mortsel">Mortsel</option>
+        </select>
+        <button class="surprise" onclick="surpriseMe()"><div class="pdot"></div> 🎲 Surprise Me!</button>
+      </div>
+      <div class="sb-sec">
+        <span class="sb-lbl">💰 Price</span>
+        <div class="pills" id="pf">
+          <div class="pill on" onclick="setFilter('price','all',this,'pf')">All</div>
+          <div class="pill" onclick="setFilter('price','budget',this,'pf')">€ Budget</div>
+          <div class="pill" onclick="setFilter('price','mid',this,'pf')">€€ Mid</div>
+          <div class="pill" onclick="setFilter('price','premium',this,'pf')">€€€ Premium</div>
+        </div>
+      </div>
+      <div class="sb-sec">
+        <span class="sb-lbl">🍽️ Cuisine</span>
+        <div class="pills" id="cf">
+          <div class="pill on" onclick="setFilter('cuisine','all',this,'cf')">All</div>
+          <div class="pill" onclick="setFilter('cuisine','frituur',this,'cf')">🍟 Frituur</div>
+          <div class="pill" onclick="setFilter('cuisine','middle_eastern',this,'cf')">🥙 Middle Eastern</div>
+          <div class="pill" onclick="setFilter('cuisine','asian',this,'cf')">🍜 Asian</div>
+          <div class="pill" onclick="setFilter('cuisine','italian',this,'cf')">🍕 Italian</div>
+          <div class="pill" onclick="setFilter('cuisine','vegan',this,'cf')">🥦 Vegan</div>
+          <div class="pill" onclick="setFilter('cuisine','cafe',this,'cf')">☕ Cafe</div>
+        </div>
+      </div>
+      <div class="sb-sec">
+        <span class="sb-lbl">🕐 Status</span>
+        <div class="pills" id="sf">
+          <div class="pill on" onclick="setFilter('status','all',this,'sf')">All</div>
+          <div class="pill" onclick="setFilter('status','open',this,'sf')">🟢 Open Now</div>
+          <div class="pill" onclick="setFilter('status','closed',this,'sf')">🔴 Closed</div>
+        </div>
+      </div>
+      <div class="rh"><span class="rh-t">Results</span><span class="rh-c" id="rhc">Loading…</span></div>
+      <div id="list-wrap">
+        <div class="loading-state">
+          <div class="ls-icon">🗺️</div>
+          <div class="ls-t">Fetching live data</div>
+          <div class="ls-s">Querying OpenStreetMap for restaurants, cafes &amp; food spots within 15 km…</div>
+          <div class="loading-dots"><span></span><span></span><span></span></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="map-wrap">
+      <div id="map"></div>
+      <button class="mabtn" id="loc-btn" onclick="locateMe()">📍 My Location</button>
+    </div>
+  </div>
+</div>
+
+<div id="bs">
+  <div class="bsh" onclick="toggleBS()"></div>
+  <div class="bshd" onclick="toggleBS()">
+    <span class="bsht">🍽️ Nearby Spots</span>
+    <span id="bsc" style="font-size:11px;color:var(--muted)">Loading…</span>
+  </div>
+  <div id="bsl"></div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<script>
+var S = {
+  all:[], filtered:[], map:null, layer:null, tile:null,
+  markers:{}, userPos:null, userM:null, routeLine:null,
+  spot:null, theme:'light', sidebarOn:true, bsUp:false,
+  filters:{price:'all',cuisine:'all',status:'all'}, q:''
+};
+
+var CENTER  = [51.2213, 4.4051];
+var RADIUS  = 15000; // 15 km
+var TILES   = {
+  light:'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+  dark :'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+};
+
+var CUISINE_KW = {
+  frituur:        ['frituur','french_fries','chips','friture','frites'],
+  middle_eastern: ['kebab','shawarma','turkish','arabic','middle_eastern','falafel','lebanese','syrian','halal','döner','doner'],
+  asian:          ['chinese','japanese','thai','vietnamese','korean','sushi','ramen','asian','noodle','wok','dim_sum','pho'],
+  italian:        ['italian','pizza','pasta','trattoria','osteria','pizzeria'],
+  vegan:          ['vegan','vegetarian'],
+  cafe:           ['coffee','cafe','espresso','latte','koffie','tearoom','tea']
+};
+
+var COLORS = {
+  frituur:        {bg:'#F5A623',e:'🍟'},
+  middle_eastern: {bg:'#9B59B6',e:'🥙'},
+  asian:          {bg:'#E74C3C',e:'🍜'},
+  italian:        {bg:'#27AE60',e:'🍕'},
+  vegan:          {bg:'#2ECC71',e:'🥦'},
+  cafe:           {bg:'#8B5E3C',e:'☕'},
+  fast_food:      {bg:'#FF6B35',e:'🍔'},
+  restaurant:     {bg:'#E8443A',e:'🍽️'}
+};
+
+var HOODS = {
+  Borgerhout: [51.2150,4.4400], Zuid:       [51.2000,4.3950],
+  Deurne:     [51.2100,4.4750], Berchem:    [51.1900,4.4200],
+  Merksem:    [51.2500,4.4250], Hoboken:    [51.1750,4.3650],
+  Wilrijk:    [51.1730,4.3980], Ekeren:     [51.2800,4.4150],
+  Zwijndrecht:[51.2100,4.3300],
+  Kiel:       [51.1880,4.3970],
+  Mortsel:    [51.1630,4.4560]
+};
+
+// ── HELPERS ────────────────────────────────────────────────────────────────
+
+function checkOpen(h) {
+  if (!h) return 'unknown';
+  if (h === '24/7') return 'open';
+  var now = new Date(), cur = now.getHours()*60 + now.getMinutes();
+  // Handle simple HH:MM-HH:MM format
+  var m = h.match(/(\d{1,2}):(\d{2})-(\d{1,2}):(\d{2})/);
+  if (!m) return 'unknown';
+  var o = parseInt(m[1])*60+parseInt(m[2]), c = parseInt(m[3])*60+parseInt(m[4]);
+  if (c < o) c += 1440; // crosses midnight
+  return (cur >= o && cur <= c) ? 'open' : 'closed';
+}
+
+function getColor(cuisine) { return COLORS[cuisine] || COLORS.restaurant; }
+
+function priceFor(cuisine) {
+  if (['frituur','fast_food'].indexOf(cuisine) !== -1) return 'budget';
+  if (cuisine === 'cafe') return 'mid';
+  return 'mid';
+}
+
+function detectCuisine(tags) {
+  var raw = ((tags.cuisine||'') + ' ' + (tags.name||'')).toLowerCase();
+  for (var k in CUISINE_KW) {
+    var ws = CUISINE_KW[k];
+    for (var j=0; j<ws.length; j++) {
+      if (raw.indexOf(ws[j]) !== -1) return k;
+    }
+  }
+  if (tags.amenity === 'cafe')      return 'cafe';
+  if (tags.amenity === 'fast_food') return 'fast_food';
+  return 'restaurant';
+}
+
+// Returns a clean human-readable capitalised label (no emoji) for the modal Type field
+function cuisineLabel(c) {
+  var map = {
+    frituur:'Frituur', middle_eastern:'Middle Eastern', asian:'Asian',
+    italian:'Italian', vegan:'Vegan', cafe:'Cafe',
+    fast_food:'Fast Food', restaurant:'Restaurant'
+  };
+  return map[c] || 'Food';
+}
+
+// Returns label with emoji for sidebar cards and modal subtitle
+function cuisineName(c) {
+  return {
+    frituur:'🍟 Frituur', middle_eastern:'🥙 Middle Eastern', asian:'🍜 Asian',
+    italian:'🍕 Italian', vegan:'🥦 Vegan', cafe:'☕ Cafe',
+    fast_food:'🍔 Fast Food', restaurant:'🍽️ Restaurant'
+  }[c] || '🍴 Food';
+}
+
+function pLabel(p) { return {budget:'€',mid:'€€',premium:'€€€'}[p]||'€€'; }
+function pDesc(p)  { return {budget:'Budget (under €10)',mid:'Mid-range (€10–€25)',premium:'Premium (€25+)'}[p]||'Mid-range'; }
+
+// Build a clean address string from OSM tags
+function buildAddress(t) {
+  var parts = [];
+  if (t['addr:street']) {
+    var street = t['addr:street'];
+    if (t['addr:housenumber']) street += ' ' + t['addr:housenumber'];
+    parts.push(street);
+  }
+  if (t['addr:postcode']) parts.push(t['addr:postcode']);
+  var city = t['addr:city'] || t['addr:municipality'] || '';
+  if (city) parts.push(city);
+  if (!parts.length) return 'Antwerp, Belgium';
+  return parts.join(', ');
+}
+
+// Normalise phone: trim whitespace, ensure visible if present
+function buildPhone(t) {
+  var p = t.phone || t['contact:phone'] || t['phone:BE'] || null;
+  if (!p) return null;
+  return p.trim();
+}
+
+// ── OSM PROCESSING ─────────────────────────────────────────────────────────
+
+function processOSM(els) {
+  var out = [], seen = {};
+  for (var i = 0; i < els.length; i++) {
+    var el = els[i], t = el.tags || {};
+    if (!t.name) continue;
+
+    // nodes have lat/lon directly; ways have a center object
+    var lat = el.lat  !== undefined ? el.lat  : (el.center ? el.center.lat : null);
+    var lon = el.lon  !== undefined ? el.lon  : (el.center ? el.center.lon : null);
+    if (lat === null || lon === null) continue;
+
+    // deduplicate by name + approximate position
+    var key = t.name.toLowerCase() + '|' + lat.toFixed(3) + '|' + lon.toFixed(3);
+    if (seen[key]) continue;
+    seen[key] = true;
+
+    var cuisine = detectCuisine(t);
+    var c       = getColor(cuisine);
+    var addr    = buildAddress(t);
+    var phone   = buildPhone(t);
+
+    out.push({
+      id:      el.id,
+      name:    t.name,
+      cuisine: cuisine,
+      lat:     lat,
+      lon:     lon,
+      address: addr,
+      phone:   phone,
+      hours:   t.opening_hours || null,
+      isOpen:  checkOpen(t.opening_hours),
+      price:   priceFor(cuisine),
+      emoji:   c.e,
+      color:   c.bg,
+      vegan:    t['diet:vegan']   === 'yes' || cuisine === 'vegan',
+      takeaway: t.takeaway        === 'yes',
+      delivery: t.delivery        === 'yes'
+    });
+  }
+  return out;
+}
+
+// ── MAP ─────────────────────────────────────────────────────────────────────
+
+function initMap() {
+  S.map = L.map('map', {center: CENTER, zoom: 12, zoomControl: false});
+  L.control.zoom({position:'bottomright'}).addTo(S.map);
+  S.tile = L.tileLayer(TILES.light, {attribution:'&copy; OpenStreetMap &copy; CARTO', maxZoom:19}).addTo(S.map);
+  S.layer = L.markerClusterGroup({
+    chunkedLoading: true, showCoverageOnHover: false, maxClusterRadius: 55,
+    iconCreateFunction: function(cl) {
+      var n = cl.getChildCount();
+      var bg = n >= 50 ? '#9B59B6' : n >= 10 ? '#E8443A' : '#F5A623';
+      var sz = n >= 50 ? 50 : n >= 10 ? 42 : 36;
+      return L.divIcon({
+        html: '<div style="width:'+sz+'px;height:'+sz+'px;border-radius:50%;background:'+bg+';border:2.5px solid white;box-shadow:0 3px 10px rgba(0,0,0,.2);display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:13px;font-family:Syne,sans-serif">'+n+'</div>',
+        className:'', iconSize:[sz,sz]
+      });
+    }
+  });
+  S.map.addLayer(S.layer);
+}
+
+function renderMarkers(spots) {
+  S.layer.clearLayers(); S.markers = {};
+  for (var i = 0; i < spots.length; i++) {
+    (function(sp) {
+      var icon = L.divIcon({
+        html: '<div style="width:36px;height:36px;border-radius:50% 50% 50% 3px;background:'+sp.color+';border:2.5px solid white;box-shadow:0 3px 10px rgba(0,0,0,.25);display:flex;align-items:center;justify-content:center;font-size:17px">'+sp.emoji+'</div>',
+        className:'', iconSize:[36,36], iconAnchor:[18,36]
+      });
+      var m = L.marker([sp.lat, sp.lon], {icon:icon});
+      m.on('click', function(){ openModal(sp); });
+      S.markers[sp.id] = m;
+      S.layer.addLayer(m);
+    })(spots[i]);
+  }
+}
+
+function renderList(spots) {
+  document.getElementById('rhc').textContent  = spots.length + ' spots';
+  document.getElementById('cnt').textContent  = spots.length;
+  document.getElementById('bsc').textContent  = spots.length + ' spots';
+  var html = '';
+  if (!spots.length) {
+    html = '<div class="empty"><div class="ei">🔍</div><div class="et">No spots found</div><div class="es">Try adjusting your filters</div></div>';
+  } else {
+    var lim = Math.min(spots.length, 150);
+    for (var i = 0; i < lim; i++) {
+      var s = spots[i];
+      var sc = s.isOpen==='open' ? 'bo' : s.isOpen==='closed' ? 'bc' : 'bu';
+      var st = s.isOpen==='open' ? 'OPEN' : s.isOpen==='closed' ? 'CLOSED' : '?';
+      html += '<div class="card" data-id="'+s.id+'" onclick="cardClick(\''+s.id+'\')">' +
+        '<div class="ct">' +
+          '<div class="ci" style="background:'+s.color+'22">'+s.emoji+'</div>' +
+          '<div style="flex:1;min-width:0"><div class="cn">'+esc(s.name)+'</div><div class="cc">'+cuisineName(s.cuisine)+'</div></div>' +
+          '<span class="badge '+sc+'">'+st+'</span>' +
+        '</div>' +
+        '<div class="cb"><span class="pt">'+pLabel(s.price)+'</span><span>📍 '+esc(s.address.split(',')[0])+'</span></div>' +
+      '</div>';
+    }
+  }
+  document.getElementById('list-wrap').innerHTML = html;
+  document.getElementById('bsl').innerHTML       = html;
+}
+
+function esc(s) {
+  return String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── CARD / MODAL ────────────────────────────────────────────────────────────
+
+function cardClick(id) {
+  var sp = null;
+  for (var i = 0; i < S.all.length; i++) {
+    if (String(S.all[i].id) === String(id)) { sp = S.all[i]; break; }
+  }
+  if (!sp) return;
+  S.map.setView([sp.lat, sp.lon], 17, {animate:true});
+  openModal(sp);
+  document.querySelectorAll('.card.hl').forEach(function(c){ c.classList.remove('hl'); });
+  document.querySelectorAll('.card[data-id="'+id+'"]').forEach(function(c){ c.classList.add('hl'); });
+}
+
+function openModal(sp) {
+  S.spot = sp;
+  document.getElementById('mi').textContent      = sp.emoji;
+  document.getElementById('mn').textContent      = sp.name;
+  document.getElementById('mc').textContent      = cuisineName(sp.cuisine);
+  document.getElementById('mp').textContent      = pDesc(sp.price);
+  document.getElementById('mtype').textContent   = cuisineLabel(sp.cuisine);   // capitalised, no emoji
+  document.getElementById('mphone').textContent  = sp.phone  || 'Not listed';
+  document.getElementById('maddr').textContent   = sp.address;
+
+  // Hours
+  var hoursEl = document.getElementById('mhours');
+  hoursEl.textContent  = sp.hours || 'Not listed';
+  hoursEl.className    = 'ival' + (sp.isOpen==='open' ? ' g' : sp.isOpen==='closed' ? ' r' : '');
+
+  // Tags
+  var tags = '';
+  if (sp.vegan)    tags += '<span class="tag g">🥦 Vegan-friendly</span>';
+  if (sp.takeaway) tags += '<span class="tag a">📦 Takeaway</span>';
+  if (sp.delivery) tags += '<span class="tag a">🚴 Delivery</span>';
+  if (sp.price==='budget') tags += '<span class="tag a">💰 Budget-friendly</span>';
+  document.getElementById('mtags').innerHTML = tags;
+
+  document.getElementById('rbox').style.display = 'none';
+  document.getElementById('moverlay').classList.add('on');
+}
+
+function closeModal() {
+  document.getElementById('moverlay').classList.remove('on');
+  S.spot = null;
+}
+document.getElementById('moverlay').addEventListener('click', function(e){ if (e.target === this) closeModal(); });
+document.addEventListener('keydown', function(e){ if (e.key === 'Escape') closeModal(); });
+
+// ── ROUTING / LOCATION ──────────────────────────────────────────────────────
+
+function dist(la1,lo1,la2,lo2) {
+  var R=6371000, p1=la1*Math.PI/180, p2=la2*Math.PI/180;
+  var dp=(la2-la1)*Math.PI/180, dl=(lo2-lo1)*Math.PI/180;
+  var a=Math.sin(dp/2)*Math.sin(dp/2)+Math.cos(p1)*Math.cos(p2)*Math.sin(dl/2)*Math.sin(dl/2);
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+
+function doRoute() {
+  if (!S.userPos) {
+    toast('📍 Getting location…');
+    navigator.geolocation.getCurrentPosition(
+      function(p){ S.userPos=[p.coords.latitude,p.coords.longitude]; addUserM(); calcRoute(); },
+      function(){ toast('⚠️ Location unavailable'); }
+    );
+    return;
+  }
+  calcRoute();
+}
+
+function calcRoute() {
+  if (!S.spot || !S.userPos) return;
+  var d   = dist(S.userPos[0],S.userPos[1],S.spot.lat,S.spot.lon);
+  var box = document.getElementById('rbox');
+  box.innerHTML  = '🚶 <strong>'+(d/1000).toFixed(2)+' km</strong> — ~<strong>'+Math.round(d/80)+' min</strong> walk';
+  box.style.display = 'block';
+  if (S.routeLine) S.map.removeLayer(S.routeLine);
+  S.routeLine = L.polyline([S.userPos,[S.spot.lat,S.spot.lon]],{color:'#F5A623',weight:3,dashArray:'6 6'}).addTo(S.map);
+  S.map.fitBounds(S.routeLine.getBounds(), {padding:[60,60]});
+}
+
+function openMaps() {
+  if (!S.spot) return;
+  window.open('https://www.google.com/maps/search/?api=1&query='+S.spot.lat+','+S.spot.lon,'_blank');
+}
+
+function locateMe() {
+  navigator.geolocation.getCurrentPosition(
+    function(p){ S.userPos=[p.coords.latitude,p.coords.longitude]; addUserM(); S.map.setView(S.userPos,15,{animate:true}); toast('📍 Found you!'); },
+    function(){ toast('⚠️ Location unavailable'); }
+  );
+}
+
+function addUserM() {
+  if (S.userM) S.map.removeLayer(S.userM);
+  var ic = L.divIcon({
+    html:'<div style="width:16px;height:16px;background:#3498DB;border-radius:50%;border:3px solid white;box-shadow:0 0 0 5px rgba(52,152,219,.25)"></div>',
+    className:'', iconSize:[16,16], iconAnchor:[8,8]
+  });
+  S.userM = L.marker(S.userPos, {icon:ic}).addTo(S.map);
+}
+
+// ── FILTERS ─────────────────────────────────────────────────────────────────
+
+function setFilter(type, val, el, groupId) {
+  S.filters[type] = val;
+  var g = document.getElementById(groupId);
+  if (g) g.querySelectorAll('.pill').forEach(function(p){ p.classList.remove('on'); });
+  if (el) el.classList.add('on');
+  applyFilters();
+}
+
+function applyFilters() {
+  var pf=S.filters.price, cf=S.filters.cuisine, sf=S.filters.status, q=S.q.toLowerCase();
+  
+  // Get the selected neighborhood from the dropdown
+  var hood = document.getElementById('nbsel').value;
+  var hoodCoords = HOODS[hood] || null;
+
+  S.filtered = S.all.filter(function(s) {
+    // 1. Neighborhood Filter: Check if spot is within 1.5km of the selected area
+    if (hoodCoords && dist(s.lat, s.lon, hoodCoords[0], hoodCoords[1]) > 1500) return false;
+
+    // 2. Existing Filters
+    if (pf!=='all' && s.price!==pf) return false;
+    if (cf!=='all') {
+      if (cf==='vegan' && !s.vegan && s.cuisine!=='vegan') return false;
+      if (cf!=='vegan' && s.cuisine!==cf) return false;
+    }
+    if (sf==='open'   && s.isOpen!=='open')   return false;
+    if (sf==='closed' && s.isOpen!=='closed') return false;
+    if (q && (s.name+' '+s.cuisine+' '+s.address).toLowerCase().indexOf(q)===-1) return false;
+    
+    return true;
+  });
+
+  renderMarkers(S.filtered);
+  renderList(S.filtered);
+}
+
+function onSearch(v) { S.q = v; applyFilters(); }
+
+// ── SURPRISE / THEME / UI ───────────────────────────────────────────────────
+
+function surpriseMe() {
+  var hood = document.getElementById('nbsel').value, pool = S.all;
+  if (hood && HOODS[hood]) {
+    var h = HOODS[hood];
+    pool = S.all.filter(function(s){ return dist(s.lat,s.lon,h[0],h[1]) < 1500; });
+  }
+  var gems = pool.filter(function(s){
+    return ['McDonald','Burger King','KFC','Quick','Subway'].every(function(n){ return s.name.indexOf(n)===-1; });
+  });
+  if (!gems.length) { toast('No gems found — try another neighbourhood!'); return; }
+  var pick = gems[Math.floor(Math.random()*gems.length)];
+  S.map.setView([pick.lat,pick.lon], 17, {animate:true});
+  setTimeout(function(){ openModal(pick); }, 500);
+  toast('🎲 '+pick.name+' — give it a try!');
+}
+
+function toggleTheme() {
+  S.theme = S.theme==='light' ? 'dark' : 'light';
+  document.documentElement.setAttribute('data-theme', S.theme);
+  document.getElementById('thmbtn').textContent = S.theme==='dark' ? '☀️' : '🌙';
+  if (S.tile) S.map.removeLayer(S.tile);
+  S.tile = L.tileLayer(TILES[S.theme], {attribution:'&copy; OpenStreetMap &copy; CARTO', maxZoom:19}).addTo(S.map);
+}
+
+function toggleSidebar() {
+  S.sidebarOn = !S.sidebarOn;
+  document.getElementById('sidebar').style.display = S.sidebarOn ? '' : 'none';
+  setTimeout(function(){ S.map.invalidateSize(); }, 300);
+}
+
+function toggleBS() {
+  S.bsUp = !S.bsUp;
+  document.getElementById('bs').classList.toggle('up', S.bsUp);
+}
+
+function toast(msg) {
+  var c=document.getElementById('toasts'), t=document.createElement('div');
+  t.className='toast'; t.textContent=msg; c.appendChild(t);
+  setTimeout(function(){ if (t.parentNode) t.parentNode.removeChild(t); }, 3500);
+}
+
+// ── LIVE FETCH ──────────────────────────────────────────────────────────────
+// Queries both node AND way elements within 15 km; uses out center so ways
+// return a lat/lon centroid we can place on the map.
+
+// Two endpoints — if the primary is busy, the fallback kicks in automatically
+var OVERPASS_ENDPOINTS = [
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter'
+];
+
+function buildQuery() {
+  var r = RADIUS, la = CENTER[0], lo = CENTER[1];
+  // "out center;" is the correct syntax: returns lat/lon for nodes and
+  // centroid for ways, and always includes all tags. "out center tags;" is
+  // invalid QL and causes the API to return an error instead of data.
+  return '[out:json][timeout:60];(' +
+    'node["amenity"="fast_food"](around:'+r+','+la+','+lo+');' +
+    'node["amenity"="cafe"](around:'+r+','+la+','+lo+');' +
+    'node["amenity"="restaurant"](around:'+r+','+la+','+lo+');' +
+    'way["amenity"="fast_food"](around:'+r+','+la+','+lo+');' +
+    'way["amenity"="cafe"](around:'+r+','+la+','+lo+');' +
+    'way["amenity"="restaurant"](around:'+r+','+la+','+lo+');' +
+  ');out center;';
+}
+
+function fetchFromEndpoint(endpoint, query, timeoutMs, cb) {
+  var ctrl  = new AbortController();
+  var timer = setTimeout(function(){ ctrl.abort(); }, timeoutMs);
+  // POST is required for long queries — GET URLs get truncated or rejected
+  // by the Overpass API when the encoded query is more than ~500 chars.
+  fetch(endpoint, {
+    method:  'POST',
+    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+    body:    'data=' + encodeURIComponent(query),
+    signal:  ctrl.signal
+  })
+    .then(function(r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    })
+    .then(function(data) {
+      clearTimeout(timer);
+      // Overpass returns a remark field on server-side errors
+      if (data.remark && (!data.elements || !data.elements.length)) {
+        console.error('Overpass remark:', data.remark);
+        throw new Error('Overpass: ' + data.remark);
+      }
+      cb(null, data.elements || []);
+    })
+    .catch(function(err) {
+      clearTimeout(timer);
+      console.error('Overpass error [' + endpoint + ']:', err && err.message);
+      cb(err, null);
+    });
+}
+
+function fetchLive(cb) {
+  var query = buildQuery();
+  // Try primary endpoint first; on any failure retry with fallback
+  fetchFromEndpoint(OVERPASS_ENDPOINTS[0], query, 35000, function(err, elements) {
+    if (!err && elements !== null) {
+      var live = processOSM(elements);
+      S.all = live;
+      applyFilters();
+      cb(live.length);
+      return;
+    }
+    // Primary failed — try fallback
+    toast('⏳ Retrying with backup server…');
+    fetchFromEndpoint(OVERPASS_ENDPOINTS[1], query, 35000, function(err2, elements2) {
+      if (!err2 && elements2 !== null) {
+        var live2 = processOSM(elements2);
+        S.all = live2;
+        applyFilters();
+        cb(live2.length);
+      } else {
+        cb(null); // both failed
+      }
+    });
+  });
+}
+
+// ── BOOT ────────────────────────────────────────────────────────────────────
+
+initMap();
+S.all      = [];
+S.filtered = [];
+renderMarkers([]);
+// list already shows loading state via static HTML
+
+var splashMinDone = false;
+var fetchDone     = false;
+var fetchCount    = null;
+
+function tryReveal() {
+  if (!splashMinDone || !fetchDone) return;
+
+  var sp = document.getElementById('splash');
+  if (sp) {
+    sp.classList.add('out');
+    setTimeout(function(){ if (sp.parentNode) sp.parentNode.removeChild(sp); }, 600);
+  }
+
+  if (fetchCount === null) {
+    // fetch failed
+    document.getElementById('rhc').textContent = 'Error';
+    document.getElementById('cnt').textContent = '0';
+    document.getElementById('bsc').textContent = '0 spots';
+    document.getElementById('list-wrap').innerHTML =
+      '<div class="empty">' +
+        '<div class="ei">⚠️</div>' +
+        '<div class="et">Could not load data</div>' +
+        '<div class="es">Check your internet connection and reload the page. The Overpass API may also be temporarily busy — try again in a minute.</div>' +
+      '</div>';
+    document.getElementById('bsl').innerHTML = document.getElementById('list-wrap').innerHTML;
+    toast('⚠️ Live data unavailable. Please reload.');
+  } else if (fetchCount === 0) {
+    document.getElementById('list-wrap').innerHTML =
+      '<div class="empty"><div class="ei">🔍</div><div class="et">No results</div><div class="es">No food spots were found in the 15 km radius. Try reloading.</div></div>';
+    toast('⚠️ No spots returned from OpenStreetMap.');
+  } else {
+    toast('✅ Loaded ' + fetchCount + ' live spots!');
+  }
+}
+
+// Keep splash for at least 2.6 s so the progress bar animation can complete
+setTimeout(function(){
+  splashMinDone = true;
+  tryReveal();
+}, 2600);
+
+// Start fetching immediately
+fetchLive(function(count) {
+  fetchDone  = true;
+  fetchCount = count;
+  tryReveal();
+});
+</script>
+</body>
+</html>
